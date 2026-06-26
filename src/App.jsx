@@ -5,6 +5,7 @@ import { addItem } from "./services/inventoryService";
 
 import { db } from "./firebase";
 import { onSnapshot, collection } from "firebase/firestore";
+import { deleteItem } from "./services/inventoryService";
 
 function App() {
   const [product, setProduct] = useState(null);
@@ -56,6 +57,14 @@ function App() {
       console.error("Failed to add item:", err);
     }
   };
+// delete
+  const handleDelete = async (id) => {
+  try {
+    await deleteItem(id);
+  } catch (err) {
+    console.error("Delete failed:", err);
+  }
+};
 
   return (
     <div style={{ padding: "20px" }}>
@@ -90,12 +99,26 @@ function App() {
       {inventory.length === 0 && <p>No items yet.</p>}
 
       {inventory.map((item) => (
-        <div key={item.id} style={{ marginBottom: "10px" }}>
-          <h3>{item.name}</h3>
-          <p>{item.brand}</p>
-          <p>Expires: {item.expiry}</p>
-        </div>
-      ))}
+  <div key={item.id} style={{ marginBottom: "10px" }}>
+    <h3>{item.name}</h3>
+    <p>{item.brand}</p>
+    <p>Expires: {item.expiry}</p>
+
+    <button
+      onClick={() => handleDelete(item.id)}
+      style={{
+        marginTop: "5px",
+        backgroundColor: "red",
+        color: "white",
+        border: "none",
+        padding: "5px 10px",
+        cursor: "pointer"
+      }}
+    >
+      Delete
+    </button>
+  </div>
+))}
     </div>
   );
 }
