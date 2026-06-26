@@ -11,6 +11,18 @@ function App() {
   const [product, setProduct] = useState(null);
   const [expiry, setExpiry] = useState("");
   const [inventory, setInventory] = useState([]);
+  const getExpiryColor = (expiry) => {
+  if (!expiry) return "black";
+
+  const today = new Date();
+  const expDate = new Date(expiry);
+
+  const diffDays = (expDate - today) / (1000 * 60 * 60 * 24);
+
+  if (diffDays < 0) return "red";
+  if (diffDays < 3) return "orange";
+  return "green";
+};
 
   // 🔥 REAL-TIME FIRESTORE SYNC (IMPORTANT UPGRADE)
   useEffect(() => {
@@ -102,7 +114,10 @@ function App() {
   <div key={item.id} style={{ marginBottom: "10px" }}>
     <h3>{item.name}</h3>
     <p>{item.brand}</p>
-    <p>Expires: {item.expiry}</p>
+
+    <p style={{ color: getExpiryColor(item.expiry), fontWeight: "bold" }}>
+      Expires: {item.expiry}
+    </p>
 
     <button
       onClick={() => handleDelete(item.id)}
