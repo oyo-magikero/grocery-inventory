@@ -1,28 +1,31 @@
 import { useState, useEffect } from "react";
 import BarcodeScanner from "./components/BarcodeScanner";
 import { lookupProduct } from "./utils/lookupProduct";
-import { addItem, getItems } from "./services/inventoryService";
+import { addItem } from "./services/inventoryService";
+
+import { db } from "./firebase";
+import { onSnapshot, collection } from "firebase/firestore";
 
 function App() {
   const [product, setProduct] = useState(null);
   const [expiry, setExpiry] = useState("");
   const [inventory, setInventory] = useState([]);
 
-  // Load inventory from Firestore on startup
+  // 🔥 REAL-TIME FIRESTORE SYNC (IMPORTANT UPGRADE)
   useEffect(() => {
-    const loadInventory = async () => {
-      try {
-        const items = await getItems();
-        setInventory(items);
-      } catch (err) {
-        console.error("Failed to load inventory:", err);
-      }
-    };
+    const unsub = onSnapshot(collection(db, "inventory"), (snapshot) => {
+      const items = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
 
-    loadInventory();
+      setInventory(items);
+    });
+
+    return () => unsub();
   }, []);
 
-  // Handle barcode scan
+  // 📷 Barcode scan
   const handleScan = async (barcode) => {
     try {
       const result = await lookupProduct(barcode);
@@ -32,7 +35,7 @@ function App() {
     }
   };
 
-  // Add item to Firestore + local state
+  // ➕ Add to Firestore
   const addToInventory = async () => {
     if (!product || !expiry) return;
 
@@ -41,14 +44,11 @@ function App() {
       brand: product.brand,
       barcode: product.barcode,
       expiry,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
     try {
       await addItem(newItem);
-
-      // update UI immediately
-      setInventory((prev) => [...prev, newItem]);
 
       setProduct(null);
       setExpiry("");
@@ -74,7 +74,8 @@ function App() {
             onChange={(e) => setExpiry(e.target.value)}
           />
 
-          <br /><br />
+          <br />
+          <br />
 
           <button onClick={addToInventory}>
             Add to Inventory
@@ -88,8 +89,8 @@ function App() {
 
       {inventory.length === 0 && <p>No items yet.</p>}
 
-      {inventory.map((item, index) => (
-        <div key={index} style={{ marginBottom: "10px" }}>
+      {inventory.map((item) => (
+        <div key={item.id} style={{ marginBottom: "10px" }}>
           <h3>{item.name}</h3>
           <p>{item.brand}</p>
           <p>Expires: {item.expiry}</p>
