@@ -1,3 +1,5 @@
+import { auth, provider } from "./firebase";
+import { signInWithPopup, signOut } from "firebase/auth";
 import { useState, useEffect } from "react";
 import BarcodeScanner from "./components/BarcodeScanner";
 import { lookupProduct } from "./utils/lookupProduct";
@@ -8,6 +10,7 @@ import { onSnapshot, collection } from "firebase/firestore";
 import { deleteItem } from "./services/inventoryService";
 
 function App() {
+  const [user, setUser] = useState(null);
   const [product, setProduct] = useState(null);
   const [expiry, setExpiry] = useState("");
   const [inventory, setInventory] = useState([]);
@@ -38,6 +41,23 @@ function App() {
     return () => unsub();
   }, []);
 
+useEffect(() => {
+  if (!user) return;
+
+  const unsub = onSnapshot(
+    collection(db, "inventory"),
+    (snapshot) => {
+      const items = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(item => item.userId === user.uid);
+
+      setInventory(items);
+    }
+  );
+
+  return () => unsub();
+}, [user]);
+
   // 📷 Barcode scan
   const handleScan = async (barcode) => {
     try {
@@ -53,12 +73,13 @@ function App() {
     if (!product || !expiry) return;
 
     const newItem = {
-      name: product.name,
-      brand: product.brand,
-      barcode: product.barcode,
-      expiry,
-      createdAt: new Date().toISOString(),
-    };
+  name: product.name,
+  brand: product.brand,
+  barcode: product.barcode,
+  expiry,
+  userId: user.uid,
+  createdAt: new Date().toISOString()
+};
 
     try {
       await addItem(newItem);
@@ -78,12 +99,46 @@ function App() {
   }
 };
 
+const login = async () => {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    setUser(result.user);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const logout = async () => {
+  await signOut(auth);
+  setUser(null);
+};
+
+useEffect(() => {
+  const unsub = auth.onAuthStateChanged((u) => {
+    setUser(u);
+  });
+
+  return () => unsub();
+}, []);
+
+
   return (
     <div style={{ padding: "20px" }}>
       <h1>Grocery Inventory</h1>
 
       <BarcodeScanner onScan={handleScan} />
+      
+ {/* 🔐 AUTH SECTION (PUT IT HERE) */}
+    {!user ? (
+      <button onClick={login}>Sign in with Google</button>
+    ) : (
+      <>
+        <p>Welcome, {user.displayName}</p>
+        <button onClick={logout}>Logout</button>
+      </>
+    )}
 
+    <BarcodeScanner onScan={handleScan} />
       {product && (
         <div style={{ marginTop: "20px" }}>
           <h2>{product.name}</h2>
